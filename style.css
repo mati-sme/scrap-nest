@@ -215,3 +215,47 @@ html, body {
 @media (min-width: 700px) {
   #app { box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 20px 60px rgba(0,0,0,0.45); }
 }
+
+
+/* Bottom-left invisible joystick (yard only) */
+#joyPad {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: min(42vw, 168px);
+  height: min(38vh, 200px);
+  padding-left: env(safe-area-inset-left);
+  padding-bottom: env(safe-area-inset-bottom);
+  pointer-events: auto;
+  z-index: 4;
+  touch-action: none;
+  /* faint corner cue so players find it once; still mostly invisible */
+  background: radial-gradient(ellipse 70% 70% at 28% 72%, rgba(78,205,196,0.10), transparent 70%);
+}
+#joy {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+#joy .ring {
+  position: absolute;
+  width: 112px;
+  height: 112px;
+  margin: -56px 0 0 -56px;
+  border-radius: 50%;
+  border: 3px solid rgba(78,205,196,0.32);
+  background: rgba(78,205,196,0.06);
+}
+#joy .knob {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px;
+  border-radius: 50%;
+  background: rgba(78,205,196,0.28);
+  border: 2px solid rgba(78,205,196,0.5);
+}

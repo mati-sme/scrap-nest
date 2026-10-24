@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#1a1420">
-<meta name="description" content="Scrap Nest — drag a claw over junkyard scrap, shred parts, grow a skill tree, reset the Nest for helper bots.">
+<meta name="description" content="Scrap Nest — aim a claw with a bottom-left stick, shred junkyard scrap, grow a skill tree, reset the Nest for helper bots.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>Scrap Nest</title>
@@ -38,6 +38,9 @@
       <div class="tut-card"><div id="tutTxt"></div></div>
       <button id="tutSkip" class="btn small">Skip</button>
     </div>
+    <!-- Invisible bottom-left joystick hit zone + faint ring while dragging -->
+    <div id="joyPad" class="hidden" aria-label="Claw joystick"></div>
+    <div id="joy" class="hidden"><div class="ring"></div><div class="knob"></div></div>
   </div>
 
   <div id="nest">
@@ -58,8 +61,8 @@
     <section id="tab-home" class="tab">
       <div class="card home-card">
         <div class="goalcard" id="goalCard"></div>
-        <button id="btnDig" class="dig"><span>SHRED</span><small id="digSub">18s power · drag claw over scrap</small></button>
-        <p class="flavor">One junkyard screen. Drag the claw — scrap inside the ring shreds itself. Spend parts on the Upgrade Map. When power dips, come home to Pip &amp; Bolt.</p>
+        <button id="btnDig" class="dig"><span>SHRED</span><small id="digSub">18s power · stick (↙) aims claw</small></button>
+        <p class="flavor">One junkyard screen. Thumb the bottom-left stick — the teal claw shreds scrap in its ring. Spend parts on the Upgrade Map. When power dips, come home to Pip &amp; Bolt.</p>
       </div>
     </section>
 
@@ -81,7 +84,8 @@
       <div class="card settings">
         <h2>How to play</h2>
         <ul>
-          <li>Drag anywhere — the claw ring shreds scrap inside it automatically.</li>
+          <li>Phone: thumb the invisible stick in the bottom-left — claw moves by stick direction (velocity). Finger stays off the scrap.</li>
+          <li>Desktop: mouse-hover aims the claw, or hold WASD / arrow keys.</li>
           <li>Power is a timed cycle. Return to the Nest to spend parts.</li>
           <li>Upgrade Map nodes are buy-once. Grow claw size, shred, magnet, spawn, auto-claw.</li>
           <li>Nest Anchor unlocks Nest Reset — spend Relics on permanent buffs and helper bots.</li>

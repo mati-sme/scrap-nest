@@ -21,6 +21,28 @@
   let pointerDown = false;
   let dpr = 1;
 
+  /*
+   * Claw aiming control choice (documented):
+   * Bottom-left invisible analog joystick drives CLAW VELOCITY from stick offset
+   * (not absolute position mapping). Stick dx/dy are clamped to JOY_R after a
+   * deadzone; full deflection = CLAW_SPEED px/s. Velocity feels best for aiming
+   * a claw over a large yard from a small corner pad: continuous fine nudges
+   * while the finger stays off the scrap. Absolute stick→yard mapping would
+   * squash the whole field into ~120px and feel twitchy.
+   * Desktop keeps mouse-hover aim; WASD / arrows are a velocity alternative.
+   * Touch/pen on the rest of the screen does NOT move the claw.
+   */
+  const JOY_DEAD = 12;
+  const JOY_R = 48;
+  const CLAW_SPEED = 340; // px/s at full stick / held key
+  const KEYMAP = {
+    ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
+    w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0],
+    W: [0, -1], S: [0, 1], A: [-1, 0], D: [1, 0],
+  };
+  const keys = [];
+  let joy = null; // { id, x0, y0, x, y, active }
+
   function load() {
     try {
       const raw = localStorage.getItem(SAVE_KEY);
@@ -101,22 +123,137 @@
     return { x: t.clientX - rect.left, y: t.clientY - rect.top };
   }
 
-  function onPointer(e, down) {
+  function joyPadEl() { return $('joyPad'); }
+  function joyEl() { return $('joy'); }
+
+  function setYardControls(on) {
+    const pad = joyPadEl();
+    if (!pad) return;
+    pad.classList.toggle('hidden', !on);
+    if (!on) {
+      joy = null;
+      const j = joyEl();
+      if (j) j.classList.add('hidden');
+    }
+  }
+
+  function joyShow() {
+    const el = joyEl();
+    if (!el || !joy) return;
+    const ar = $('app').getBoundingClientRect();
+    el.classList.remove('hidden');
+    el.style.left = (joy.x0 - ar.left) + 'px';
+    el.style.top = (joy.y0 - ar.top) + 'px';
+    let dx = joy.x - joy.x0, dy = joy.y - joy.y0;
+    const d = Math.hypot(dx, dy);
+    if (d > JOY_R) { dx *= JOY_R / d; dy *= JOY_R / d; }
+    el.querySelector('.knob').style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+  }
+
+  /** Normalized stick vector in [-1,1], or null if idle / in deadzone. */
+  function joyVec() {
+    if (!joy || !joy.active) return null;
+    let dx = joy.x - joy.x0, dy = joy.y - joy.y0;
+    const d = Math.hypot(dx, dy);
+    if (d < JOY_DEAD) return null;
+    const m = Math.min(1, d / JOY_R);
+    return { x: (dx / d) * m, y: (dy / d) * m };
+  }
+
+  function keyVec() {
+    if (!keys.length) return null;
+    let x = 0, y = 0;
+    for (const k of keys) {
+      const v = KEYMAP[k];
+      if (!v) continue;
+      x += v[0]; y += v[1];
+    }
+    if (!x && !y) return null;
+    const d = Math.hypot(x, y) || 1;
+    return { x: x / d, y: y / d };
+  }
+
+  function applyClawSteer(dt) {
     if (screen !== 'yard') return;
+    const j = joyVec();
+    const k = keyVec();
+    let vx = 0, vy = 0;
+    if (j) { vx += j.x; vy += j.y; }
+    if (k) { vx += k.x; vy += k.y; }
+    if (!vx && !vy) return;
+    const d = Math.hypot(vx, vy) || 1;
+    // Clamp combined input to unit so stick+keys don't double speed
+    const m = Math.min(1, d);
+    Yard.nudge((vx / d) * m * CLAW_SPEED * dt, (vy / d) * m * CLAW_SPEED * dt);
+  }
+
+  // Desktop: mouse hover still aims the claw on the yard (does not steal touch).
+  function onMouseAim(e, down) {
+    if (screen !== 'yard') return;
+    if (e.pointerType && e.pointerType !== 'mouse') return;
     e.preventDefault();
     SFX.unlock();
     const p = pointerPos(e);
     if (down === true) pointerDown = true;
     if (down === false) pointerDown = false;
-    // Keep on Mining style: hover/drag area always active while pointer present
     Yard.setPointer(p.x, p.y, true);
     if (tutStep === 0) { tutStep = 1; tutTimer = 0; }
   }
 
-  cv.addEventListener('pointerdown', e => onPointer(e, true));
-  cv.addEventListener('pointermove', e => onPointer(e, undefined));
-  cv.addEventListener('pointerup', e => onPointer(e, false));
-  cv.addEventListener('pointerleave', () => { if (screen === 'yard') Yard.setPointer(Yard.claw.x, Yard.claw.y, !!computeFx().auto); });
+  cv.addEventListener('pointerdown', e => onMouseAim(e, true));
+  cv.addEventListener('pointermove', e => onMouseAim(e, undefined));
+  cv.addEventListener('pointerup', e => onMouseAim(e, false));
+  cv.addEventListener('pointerleave', () => {
+    if (screen === 'yard') Yard.setPointer(Yard.claw.x, Yard.claw.y, !!computeFx().auto);
+  });
+
+  // Bottom-left invisible joystick (touch / pen / mouse-on-pad).
+  function joyDown(e) {
+    if (screen !== 'yard' || joy) return;
+    e.preventDefault();
+    e.stopPropagation();
+    SFX.unlock();
+    joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, active: false };
+    try { joyPadEl().setPointerCapture(e.pointerId); } catch (_) {}
+    if (tutStep === 0) { tutStep = 1; tutTimer = 0; }
+  }
+  function joyMove(e) {
+    if (!joy || e.pointerId !== joy.id) return;
+    e.preventDefault();
+    joy.x = e.clientX; joy.y = e.clientY;
+    if (!joy.active && Math.hypot(joy.x - joy.x0, joy.y - joy.y0) > JOY_DEAD) joy.active = true;
+    if (joy.active) joyShow();
+  }
+  function joyEnd(e) {
+    if (!joy || (e && e.pointerId !== joy.id)) return;
+    joy = null;
+    const j = joyEl();
+    if (j) j.classList.add('hidden');
+  }
+
+  (function bindJoyPad() {
+    const pad = joyPadEl();
+    if (!pad) return;
+    pad.addEventListener('pointerdown', joyDown);
+    pad.addEventListener('pointermove', joyMove);
+    pad.addEventListener('pointerup', joyEnd);
+    pad.addEventListener('pointercancel', joyEnd);
+    pad.addEventListener('lostpointercapture', joyEnd);
+  })();
+
+  window.addEventListener('keydown', (e) => {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+    if (!KEYMAP[e.key]) return;
+    e.preventDefault();
+    if (!keys.includes(e.key)) keys.push(e.key);
+    SFX.unlock();
+    if (screen === 'yard' && tutStep === 0) { tutStep = 1; tutTimer = 0; }
+  });
+  window.addEventListener('keyup', (e) => {
+    const i = keys.indexOf(e.key);
+    if (i >= 0) keys.splice(i, 1);
+  });
+  window.addEventListener('blur', () => { keys.length = 0; });
 
   function startCycle() {
     SFX.unlock();
@@ -126,6 +263,7 @@
     screen = 'yard';
     $('nest').classList.add('hidden');
     $('hud').classList.remove('hidden');
+    setYardControls(true);
     runPartsUI(0);
     if (!state.tutDone) {
       tutStep = Math.max(tutStep, 0);
@@ -140,6 +278,7 @@
     state.stats.lifetimeParts += got;
     if (got > state.stats.bestCycle) state.stats.bestCycle = got;
     screen = 'nest';
+    setYardControls(false);
     $('hud').classList.add('hidden');
     $('nest').classList.remove('hidden');
     setTab('home');
@@ -163,7 +302,7 @@
     } else relicChip.classList.add('hidden');
 
     const fx = computeFx();
-    $('digSub').textContent = Math.round(18 + fx.power + fx.basePower) + 's power · drag claw over scrap';
+    $('digSub').textContent = Math.round(18 + fx.power + fx.basePower) + 's power · stick (↙) aims claw';
     renderGoalCard();
     renderNestScene();
     updateTabsVisibility();
@@ -369,7 +508,7 @@
       return;
     }
     const lines = [
-      'Drag your finger — the claw shreds anything inside the ring.',
+      'Use the bottom-left stick — claw shreds scrap inside the teal ring.',
       'Power drains. When it hits zero you return to the Nest with parts.',
       'Spend parts on the Upgrade Map. Bigger claw, sharper teeth.',
       'Nice! Keep cycling. Nest Reset unlocks helper bots later.',
@@ -483,6 +622,7 @@
     }
 
     if (screen === 'yard') {
+      applyClawSteer(dt);
       const st = Yard.update(dt);
       Yard.draw(ctx);
       runPartsUI(st.runParts);

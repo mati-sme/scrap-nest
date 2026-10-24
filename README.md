@@ -19,3 +19,9 @@ Vanilla HTML / CSS / JS. No build step. WebAudio. Procedural canvas art. PWA (`m
 2. Power drains → return to Nest with whole-number **parts**.
 3. Buy Upgrade Map nodes (reach, shred, magnet, spawn, auto-claw, nest decor, prestige gate).
 4. **Nest Reset** → Nest Relics → permanent buffs + Sweeper / Grabber bot branches.
+
+## Controls
+- **Phone:** invisible analog stick in the **bottom-left** moves the claw by stick direction (velocity mapping — fine aiming without covering scrap).
+- **Desktop:** mouse hover aims the claw; WASD / arrows also steer.
+- Hard-refresh (or clear site data) after updates if the service worker sticks on an old cache (`scrap-nest-v2`+).
+

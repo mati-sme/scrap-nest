@@ -91,9 +91,26 @@ const Yard = (() => {
     });
   }
 
+  function clampClaw() {
+    const padX = 14;
+    const padTop = 60;
+    const padBot = 28;
+    claw.x = Math.max(padX, Math.min(w - padX, claw.x));
+    claw.y = Math.max(padTop, Math.min(h - padBot, claw.y));
+  }
+
   function setPointer(x, y, down) {
     claw.x = x; claw.y = y;
+    clampClaw();
     if (down !== undefined) claw.active = !!down;
+  }
+
+  /** Move claw by delta (px); used by joystick / WASD. */
+  function nudge(dx, dy) {
+    claw.x += dx;
+    claw.y += dy;
+    clampClaw();
+    claw.active = true;
   }
 
   function partsFor(pile) {
@@ -360,5 +377,5 @@ const Yard = (() => {
   function getRunParts() { return runParts; }
   function isEnded() { return ended; }
 
-  return { reset, update, draw, setPointer, clawRadius, getRunParts, isEnded, get claw() { return claw; } };
+  return { reset, update, draw, setPointer, nudge, clawRadius, getRunParts, isEnded, get claw() { return claw; } };
 })();

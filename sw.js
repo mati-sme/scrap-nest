@@ -1,6 +1,6 @@
 /* Scrap Nest service worker — bump CACHE on every release. */
 'use strict';
-const CACHE = 'scrap-nest-v1';
+const CACHE = 'scrap-nest-v2';
 const ASSETS = [
   './',
   'index.html',
